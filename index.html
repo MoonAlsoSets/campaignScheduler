@@ -84,6 +84,11 @@
     background: rgba(8,145,168,0.02);
   }
   .past-session-row .date-cell{ border-right: 1px solid var(--line-soft); }
+  .past-summary-cell{
+    grid-column: 1 / -1; display:flex; align-items:center; justify-content:center;
+    padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 15px;
+    color: var(--text-dim); letter-spacing: 0.3px;
+  }
   .past-session-row .p-num{
     font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700;
     color: var(--cyan); background: rgba(8,145,168,0.1); border: 1px solid rgba(8,145,168,0.25);
@@ -458,26 +463,32 @@ function renderRows(){
   // Past confirmed sessions, oldest to newest — read-only
   PAST_SESSIONS.forEach(s => {
     yearDivider(s.date);
-    html += `<div class="past-session-row">
-      <div class="date-cell">
-        <span class="dow">Sat</span>
-        <span class="ddate">${fmtShort(s.date)}</span>
-        <span class="p-num">${s.num}</span>
-      </div>`;
-    PLAYERS.forEach(p=>{
-      const v = s.attendance && s.attendance[p.id];
-      let cls = 'vote-btn readonly';
-      let content = '?';
-      if(v === 'yes'){ cls += ' yes'; content = '✓'; }
-      else if(v === 'no'){ cls += ' no'; content = '✕'; }
-      else{ cls += ' pending'; }
-      html += `<div class="vote-cell">
-        <button class="${cls}" disabled>
-          ${content}
-          ${v==='yes' ? `<span class="mini-char"><img src="${p.avatar}" alt="${p.name}"></span>` : ''}
-        </button>
-      </div>`;
-    });
+    const allAttended = PLAYERS.every(p => s.attendance && s.attendance[p.id] === 'yes');
+
+    if(allAttended){
+      html += `<div class="past-session-row">
+        <div class="past-summary-cell">Session ${s.num} - ${fmt(s.date)}</div>`;
+    } else {
+      html += `<div class="past-session-row">
+        <div class="date-cell">
+          <span class="dow">Sat</span>
+          <span class="ddate">${fmtShort(s.date)}</span><span class="p-num">${s.num}</span>
+        </div>`;
+      PLAYERS.forEach(p=>{
+        const v = s.attendance && s.attendance[p.id];
+        let cls = 'vote-btn readonly';
+        let content = '?';
+        if(v === 'yes'){ cls += ' yes'; content = '✓'; }
+        else if(v === 'no'){ cls += ' no'; content = '✕'; }
+        else{ cls += ' pending'; }
+        html += `<div class="vote-cell">
+          <button class="${cls}" disabled>
+            ${content}
+            ${v==='yes' ? `<span class="mini-char"><img src="${p.avatar}" alt="${p.name}"></span>` : ''}
+          </button>
+        </div>`;
+      });
+    }
     html += `</div>`;
   });
 

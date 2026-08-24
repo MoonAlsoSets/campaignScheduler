@@ -154,13 +154,16 @@
   .row:last-child{ border-bottom: none; }
   .row:hover{ background: rgba(79,209,232,0.03); }
   .row.is-session{ background: linear-gradient(90deg, rgba(255,79,216,0.06), transparent 40%); }
+  .row.is-offday{ background: rgba(184,114,10,0.06); }
+  .row.is-offday .date-cell{ background: rgba(184,114,10,0.025); border-right-color: rgba(184,114,10,0.25); }
+  .row.is-offday .dow{ color: var(--amber); }
   .row.is-locked{ background: linear-gradient(90deg, rgba(94,255,156,0.07), transparent 55%); }
 
   .date-cell{
     padding: 13px 10px 13px 16px; display:flex; flex-direction: column; justify-content:center; gap: 2px;
     border-right: 1px solid var(--line-soft);
   }
-  .date-cell .dow{ font-size: 9px; letter-spacing: 1.5px; color: var(--text-faint); font-family:'JetBrains Mono',monospace; text-transform: uppercase;}
+  .date-cell .dow{ font-size: 15px; letter-spacing: 1.5px; color: var(--text-faint); font-family:'JetBrains Mono',monospace; text-transform: uppercase;}
   .date-cell .ddate{ font-size: 13.5px; font-weight: 600; color: var(--text); font-family:'JetBrains Mono',monospace; }
   .date-cell .stag{
     font-size: 9.5px; margin-top: 2px; font-family:'JetBrains Mono',monospace; letter-spacing: 1px;
@@ -231,7 +234,7 @@
     .player-head-btn{ padding: 6px 2px; }
     .player-head .avatar-img{ width: 60px; height: 60px; }
     .date-cell{ padding: 6px 3px 6px 6px; }
-    .date-cell .dow{ font-size: 7.5px; }
+    .date-cell .dow{ font-size: 12px; }
     .date-cell .ddate{ font-size: 10px; }
     .vote-btn{ height: 38px; font-size: 15px; }
     .consensus-row{ grid-template-columns: 56px 1fr; }
@@ -322,6 +325,18 @@ const PAST_SESSIONS = [
 const NEXT_SESSION_DATE = new Date('2026-09-05T00:00:00');
 const NEXT_SESSION_NUM = 9;
 
+// Extra non-Saturday dates to offer alongside the weekly Saturday cadence —
+// handy for holiday periods when the group might meet on an off-day.
+// Add/remove ISO date strings here as needed.
+const EXTRA_DATES = [
+  '2026-12-24', '2026-12-25', '2026-12-26', '2026-12-27', '2026-12-28',
+  '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01',
+].map(d => new Date(d + 'T00:00:00'));
+
+function keyFor(d){
+  return d.toISOString().slice(0,10);
+}
+
 const UPCOMING_WEEKS = 24; // rolling 24-week horizon from today, always including next session
 function buildUpcoming(){
   const today = new Date();
@@ -334,6 +349,16 @@ function buildUpcoming(){
     d.setDate(d.getDate() + i*7);
     list.push(d);
   }
+  // merge in any extra non-Saturday dates, skipping duplicates, then keep it chronological
+  const seen = new Set(list.map(d => keyFor(d)));
+  EXTRA_DATES.forEach(d=>{
+    const k = keyFor(d);
+    if(!seen.has(k)){
+      list.push(d);
+      seen.add(k);
+    }
+  });
+  list.sort((a,b)=> a - b);
   return list;
 }
 function nextSaturdayFrom(d){
@@ -350,8 +375,8 @@ function fmt(d){
 function fmtShort(d){
   return d.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
 }
-function keyFor(d){
-  return d.toISOString().slice(0,10);
+function dowShort(d){
+  return d.toLocaleDateString('en-GB', { weekday:'short' });
 }
 
 let currentUser = null;
@@ -471,7 +496,7 @@ function renderRows(){
     } else {
       html += `<div class="past-session-row">
         <div class="date-cell">
-          <span class="dow">Sat</span>
+          <span class="dow">${dowShort(s.date)}</span>
           <span class="ddate">${fmtShort(s.date)}</span><span class="p-num">${s.num}</span>
         </div>`;
       PLAYERS.forEach(p=>{
@@ -511,10 +536,11 @@ function renderRows(){
     let rowClass = 'row';
     if(isNext) rowClass += ' is-session';
     if(locked) rowClass += ' is-locked';
+    if(d.getDay() !== 6) rowClass += ' is-offday';
 
     html += `<div class="${rowClass}" data-datekey="${dk}" ${isNext ? 'data-next="true"' : ''}>
       <div class="date-cell">
-        <span class="dow">Sat</span>
+        <span class="dow">${dowShort(d)}</span>
         <span class="ddate">${fmtShort(d)}${locked ? ` <span class="session-num">${sessionNum}</span>` : ''}</span>
       </div>`;
 

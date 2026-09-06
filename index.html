@@ -112,8 +112,18 @@
     content: ''; flex: 1; height: 1px; background: var(--line-soft);
   }
   .year-row span{
-    font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 2px;
+    font-family: 'JetBrains Mono', monospace; font-size: 23px; letter-spacing: 2px;
     color: var(--text-faint); font-weight: 700;
+  }
+  .month-row{
+    display: flex; align-items: center; gap: 10px; padding: 4px 16px;
+  }
+  .month-row::before, .month-row::after{
+    content: ''; flex: 1; height: 1px; background: var(--line-soft);
+  }
+  .month-row span{
+    font-family: 'JetBrains Mono', monospace; font-size: 21px; letter-spacing: 1.5px;
+    color: var(--text-faint); font-weight: 600; opacity: 0.65;
   }
 
   .table-shell{
@@ -154,10 +164,24 @@
   .row:last-child{ border-bottom: none; }
   .row:hover{ background: rgba(79,209,232,0.03); }
   .row.is-session{ background: linear-gradient(90deg, rgba(255,79,216,0.06), transparent 40%); }
-  .row.is-offday{ background: rgba(184,114,10,0.06); }
-  .row.is-offday .date-cell{ background: rgba(184,114,10,0.025); border-right-color: rgba(184,114,10,0.25); }
-  .row.is-offday .dow{ color: var(--amber); }
-  .row.is-locked{ background: linear-gradient(90deg, rgba(94,255,156,0.07), transparent 55%); }
+  .row.is-offday{ background: rgba(91,107,125,0.01); }
+  .row.is-offday .date-cell{
+    background: rgba(91,107,125,0.015); border-right-color: rgba(91,107,125,0.08);
+    padding-top: 8px; padding-bottom: 8px;
+  }
+  .row.is-offday .dow{ color: var(--text-dim); font-size: 10.5px; }
+  .row.is-offday .ddate{ color: var(--text-dim); font-size: 9.5px; }
+  .row.is-offday .vote-cell{ padding: 5px; }
+  .row.is-offday .vote-btn{ height: 36px; max-width: 76px; font-size: 15px; }
+  .row.is-offday .vote-btn.pending{ background: rgba(91,107,125,0.04); border-color: rgba(91,107,125,0.15); }
+  .row.is-offday .vote-btn.yes{ background: rgba(94,255,156,0.05); border-color: rgba(94,255,156,0.25); color: var(--green); }
+  .row.is-offday .vote-btn.no{  background: rgba(255,79,110,0.025); border-color: rgba(255,79,110,0.15); color: #ff7a8a; }
+  .row.is-offday .vote-btn .mini-char{ width: 18px; height: 18px; top: -5px; right: -5px; }
+  .row.is-locked{
+    background: linear-gradient(90deg, rgba(94,255,156,0.18), rgba(94,255,156,0.04) 65%, transparent);
+    box-shadow: inset 3px 0 0 var(--green);
+  }
+  .row.is-locked .date-cell{ border-right-color: rgba(18,163,90,0.3); }
 
   .date-cell{
     padding: 13px 10px 13px 16px; display:flex; flex-direction: column; justify-content:center; gap: 2px;
@@ -265,7 +289,7 @@
   <header>
     <div class="eyebrow">Ghosts of Saltmarsh // Signal Log</div>
     <h1>Session Scheduler</h1>
-    <div class="sub">Mark each Saturday that you are available.</div>
+    <div class="sub">Mark each Friday or Saturday that you are available.</div>
   </header>
 
   <div class="sub2">Tap any cell to cycle it: <b>?</b> → <b style="color:var(--green)">✓</b> → <b style="color:#c0294a">✕</b>.</div>
@@ -273,7 +297,7 @@
   <div class="table-shell">
     <div class="scroll-region" id="scrollRegion">
       <div class="thead-row">
-        <div class="th date-col">Sat</div>
+        <div class="th date-col">Date</div>
         <div class="th" id="headSlots"></div>
       </div>
       <div id="rows"></div>
@@ -320,13 +344,14 @@ const PAST_SESSIONS = [
   { num: 6, date: new Date('2026-05-16T00:00:00'), attendance: ALL_YES },
   { num: 7, date: new Date('2026-06-27T00:00:00'), attendance: ALL_YES },
   { num: 8, date: new Date('2026-07-18T00:00:00'), attendance: ALL_YES },
+  { num: 9, date: new Date('2026-09-05T00:00:00'), attendance: ALL_YES },
 ];
 
 const NEXT_SESSION_DATE = new Date('2026-09-05T00:00:00');
-const NEXT_SESSION_NUM = 9;
+const NEXT_SESSION_NUM = 10;
 
-// Extra non-Saturday dates to offer alongside the weekly Saturday cadence —
-// handy for holiday periods when the group might meet on an off-day.
+// Extra one-off dates to offer alongside the weekly Friday/Saturday cadence —
+// handy for holiday periods when the group might meet on some other day.
 // Add/remove ISO date strings here as needed.
 const EXTRA_DATES = [
   '2026-12-26', '2026-12-27', '2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01',
@@ -344,11 +369,15 @@ function buildUpcoming(){
   const anchor = NEXT_SESSION_DATE < today ? nextSaturdayFrom(today) : NEXT_SESSION_DATE;
   const list = [];
   for(let i=0;i<UPCOMING_WEEKS;i++){
-    const d = new Date(anchor);
-    d.setDate(d.getDate() + i*7);
-    list.push(d);
+    const sat = new Date(anchor);
+    sat.setDate(sat.getDate() + i*7);
+    const fri = new Date(sat);
+    fri.setDate(fri.getDate() - 1);
+    // offer the Friday too, as long as it hasn't already passed
+    if(fri >= today) list.push(fri);
+    list.push(sat);
   }
-  // merge in any extra non-Saturday dates, skipping duplicates, then keep it chronological
+  // merge in any extra dates, skipping duplicates, then keep it chronological
   const seen = new Set(list.map(d => keyFor(d)));
   EXTRA_DATES.forEach(d=>{
     const k = keyFor(d);
@@ -475,18 +504,23 @@ function renderRows(){
   const rowsEl = document.getElementById('rows');
   let html = '';
   let currentYear = null;
+  let currentMonthKey = null;
 
   function yearDivider(d){
     const y = d.getFullYear();
+    const monthKey = `${y}-${d.getMonth()}`;
     if(y !== currentYear){
       currentYear = y;
+      currentMonthKey = monthKey;
       html += `<div class="year-row"><span>${y}</span></div>`;
+    } else if(monthKey !== currentMonthKey){
+      currentMonthKey = monthKey;
+      html += `<div class="month-row"><span>${d.toLocaleDateString('en-GB', { month: 'long' })}</span></div>`;
     }
   }
 
   // Past confirmed sessions, oldest to newest — read-only
   PAST_SESSIONS.forEach(s => {
-    yearDivider(s.date);
     const allAttended = PLAYERS.every(p => s.attendance && s.attendance[p.id] === 'yes');
 
     if(allAttended){
@@ -516,7 +550,7 @@ function renderRows(){
     html += `</div>`;
   });
 
-  html += `<div class="divider-row"><span>Upcoming — next Saturday ↓</span></div>`;
+  html += `<div class="divider-row"><span>Upcoming — next session ↓</span></div>`;
 
   // Session numbers only advance for dates that are actually locked (all-yes),
   // in date order — gaps between confirmed dates don't consume a session number.
